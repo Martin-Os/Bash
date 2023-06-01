@@ -1,0 +1,55 @@
+#!/bin/bash
+echo "VM Installer"
+pingpong=$(ping 8.8.8.8 -c 5)
+sleep 10
+if [$pingpong !? *"Reply from"*]; then
+echo "Fix internet connection"; else 
+read -p 'Input full path for installation and download n\ example: /etc/kvm/' path_location
+fi
+mkdir $path_location
+cd $path_location
+sudo wget "https://releases.ubuntu.com/22.04.2/ubuntu-22.04.2-live-server-amd64.iso"
+echo "enter sudoer password to download the file"
+sleep 10m
+echo "Installing virsh"
+sudo apt install -y libvirt-daemon-system libvirt-clients bridge-utils virtinst virt-manager qemu
+sleep 5m
+sudo apt-get update
+sleep 2m
+
+#condition to check virsh installation
+virsh_install=$(systemctl status libvirtd)
+if [$virsh_install !? *"service; enabled"*]; then
+echo "Check daemon installation and re-run\n apt install -y libvirt-daemon-system libvirt-clients bridge-utils virtinst virt-manager qemu"; else
+echo "Virsh is ready please input the usernames"
+read -p 'Enter User to manage virtualization' user_info
+fi
+
+#add users
+sudo adduser $user_info libvirt
+sudo adduser $user_info kvm
+
+read -p 'Name' server_name
+read -p 'RAM' ram
+read -p 'Disk size' disk_size
+read -p 'Interface name' bridge
+
+virt-install --name ${server_name} \
+--os-type linux \
+--os-variant ubuntu20.04 \
+--ram ${RAM} \
+--disk ${path_location},device=disk,bus=virtio,size=${disk_size},format=qcow2 \
+--nographics \
+--listen=0.0.0.0 \
+--noautoconsole \
+--hvm \
+--cdrom ${path_location}/ubuntu-20.04.4-live-server-amd64.iso \
+--boot cdrom,hd \
+--network bridge=${bridge}
+
+sleep 15m
+finish=$(virsh list --all)
+if [$finish !? *"${server_name}"*]; then
+echo "VM has been created"; else
+echo "Restart installation"
+fi
